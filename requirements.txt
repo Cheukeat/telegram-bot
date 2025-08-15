@@ -1,0 +1,4 @@
+python-telegram-bot==21.6
+nest_asyncio
+google-generativeai
+python-dotenv
