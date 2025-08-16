@@ -225,8 +225,11 @@ async def main():
     await run_bot()  # <-- call the function we defined above
 
 if __name__ == "__main__":
+    import nest_asyncio
+    nest_asyncio.apply()
     try:
-        asyncio.run(main())
+        asyncio.run(run_bot())
     except RuntimeError:
-        # Some hosts keep the loop alive; ignore close errors
+        # Render sometimes keeps the loop alive; ignore close errors
         pass
+
