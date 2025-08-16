@@ -45,9 +45,7 @@ except Exception:
 
 # ------------- Helpers -------------------
 async def answer_offline(msg, question_text: str) -> bool:
-    """
-    Try to answer from the offline brain. Return True if replied/suggested.
-    """
+    """Try offline brain first. Return True if replied/suggested."""
     m = best_match(question_text)
     if m:
         await msg.reply_text(f"❓ {question_text}\n\n{m['reply']}")
@@ -58,18 +56,14 @@ async def answer_offline(msg, question_text: str) -> bool:
         txt = "💡 សាកល្បងសំណួរទាំងនេះ (offline):\n" + "\n".join(f"• {s}" for s in sugg)
         await msg.reply_text(txt)
         return True
-
     return False
 
 # ------------- Commands ------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handles /start and deep-links /start <qid>.
-    """
+    """Handles /start and deep-links /start <qid>."""
     args = context.args or []
     if args:
         payload = args[0].strip()
-
         # deep-link id?
         if payload.startswith("q") and len(payload) == 11:
             for q in _all_questions():
@@ -79,14 +73,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await update.message.reply_text(f"❓ {q}\n\n❌ មិនមានចម្លើយ Offline។")
                     return
 
-        # If not a qid, treat as free question text
+        # otherwise treat args as free text
         qtext = " ".join(args)
         if await answer_offline(update.message, qtext):
             return
         await update.message.reply_text("❌ មិនមានចម្លើយ Offline។")
         return
 
-    # Normal welcome
+    # normal welcome
     user = update.effective_user.first_name or "អ្នកប្រើ"
     txt = (
         f"🤖 ស្វាគមន៍ {user}\n\n"
@@ -94,7 +88,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• ឆ្លើយសំណួរអំពីប្រធានបទណាមួយ (Offline first)\n"
         "• ព័ត៌មាន Offline អំពីសាលា NGS PREAKLEAP\n\n"
         "🔰 ពាក្យបញ្ជា:\n"
-        "• /start\n"
         "• /schoolinfo – បង្ហាញសំណួរ Offline ជា link ពណ៌ខៀវ (ចុចបាន)\n"
         "• /ask <សំណួរ> – សួរតាម API (Online) [ជាជម្រើស]\n\n"
         "✏️ កល្យាណ បង្កើតដោយសិស្ស NGS PREAKLEAP\n"
@@ -103,10 +96,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(txt)
 
 async def schoolinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Send the offline outline with BLUE clickable deep-links.
-    Clicking opens /start <qid>, then we answer that question.
-    """
+    """Send outline with BLUE deep-links. Clicking opens /start <qid>."""
     bot_username = context.bot.username
     help_text = get_offline_help_text() or ""
 
@@ -127,9 +117,7 @@ async def schoolinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def ask_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    /ask <question> – force online answer (if API configured).
-    """
+    """Force online answer (if API configured)."""
     if not (ask_kalyan and GEMINI_API_KEY):
         await update.message.reply_text("⚠️ API មិនបានកំណត់ (GEMINI_API_KEY/ask_kalyan មិនមាន).")
         return
@@ -141,9 +129,7 @@ async def ask_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         prompt = update.message.reply_to_message.text.strip()
     else:
         await update.message.reply_text(
-            "🧠 ប្រើឧទាហរណ៍៖\n"
-            "• /ask អ្វីទៅជា AI?\n"
-            "• ឬ reply ទៅលើសារណាមួយ ហើយវាយ /ask",
+            "🧠 ប្រើឧទាហរណ៍៖\n• /ask អ្វីទៅជា AI?\n• ឬ reply ទៅលើសារណាមួយ ហើយវាយ /ask",
             parse_mode=ParseMode.MARKDOWN,
         )
         return
@@ -152,17 +138,14 @@ async def ask_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply = ask_kalyan(prompt, api_key=GEMINI_API_KEY) or "❌ API មិនឆ្លើយតប។"
     except Exception as e:
         reply = f"⚠️ កំហុសពេលហៅ API: {e}"
-
     await update.message.reply_text(f"❓ {prompt}\n\n{reply}")
 
 async def message_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
     if not text:
         return
-
     if await answer_offline(update.message, text):
         return
-
     if ask_kalyan and GEMINI_API_KEY:
         try:
             reply = ask_kalyan(text, api_key=GEMINI_API_KEY)
@@ -186,29 +169,16 @@ async def run_bot():
     PORT = int(os.getenv("PORT", "8080"))
 
     if WEBHOOK_URL:
-        # If the URL does not end with the bot token, append it (Telegram best practice)
-        final_url = WEBHOOK_URL
-        if not final_url.endswith(TELEGRAM_BOT_TOKEN):
-            if not final_url.endswith("/"):
-                final_url += "/"
-            final_url += TELEGRAM_BOT_TOKEN
+        # Ensure full URL (you can include token at the end or not; either is ok)
+        final_url = WEBHOOK_URL.rstrip("/")
 
-        log.info("🌐 Setting webhook to %s", final_url)
-        await app.bot.set_webhook(
-            url=final_url,
-            secret_token=(WEBHOOK_SECRET or None),
-            drop_pending_updates=True,
-        )
-
-        # The path (route) is whatever comes after your domain.
-        url_path = final_url.split("/", 3)[-1]  # includes the token path
-        log.info("🚀 Running webhook on 0.0.0.0:%s path=%s", PORT, url_path)
+        log.info("🚀 Running webhook on 0.0.0.0:%s", PORT)
         await app.run_webhook(
             listen="0.0.0.0",
             port=PORT,
-            url_path=url_path,
             webhook_url=final_url,
             secret_token=(WEBHOOK_SECRET or None),
+            drop_pending_updates=True,
         )
     else:
         log.info("🟢 Long-polling…")
