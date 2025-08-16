@@ -1,10 +1,10 @@
-# NGS_PREAKLEAP Telegram Bot
+# NGS_PL Telegram Bot
 
-## Run locally
-```bash
-python -m venv venv
-# Windows PowerShell
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-copy .env.example .env   # then edit with your token
-python main.py
+### Env vars (Render → Environment)
+- `TELEGRAM_BOT_TOKEN` = your bot token
+- `GEMINI_API_KEY` = (optional) your Gemini key
+- `WEBHOOK_URL` = `https://<your-render-service>.onrender.com/`
+
+> Note: keep the trailing slash.
+
+### Start command (Render)
