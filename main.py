@@ -15,11 +15,10 @@ from telegram.ext import (
 from config import TELEGRAM_BOT_TOKEN, GEMINI_API_KEY
 from utils.matcher import best_match, top_suggestions, get_offline_help_text
 
-# ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("kalyana")
 
-# -------- Bullet parsing for outline -----
+# --- bullet parsing for outline
 _BULLET_RE = re.compile(r"^[\s\u200b]*([-•–—])\s*(.+)$")
 def _extract_q_from_line(line: str) -> Optional[str]:
     m = _BULLET_RE.match(line.strip())
@@ -37,34 +36,28 @@ def _all_questions() -> list[str]:
             out.append(q)
     return out
 
-# ------------- Optional online -----------
+# optional online fallback
 try:
-    from handlers.kalyan import ask_kalyan  # def ask_kalyan(text: str, api_key: str) -> str
+    from handlers.kalyan import ask_kalyan
 except Exception:
     ask_kalyan = None
 
-# ------------- Helpers -------------------
 async def answer_offline(msg, question_text: str) -> bool:
-    """Try offline brain first. Return True if replied/suggested."""
     m = best_match(question_text)
     if m:
         await msg.reply_text(f"❓ {question_text}\n\n{m['reply']}")
         return True
-
     sugg = top_suggestions(question_text, k=4)
     if sugg:
-        txt = "💡 សាកល្បងសំណួរទាំងនេះ (offline):\n" + "\n".join(f"• {s}" for s in sugg)
-        await msg.reply_text(txt)
+        await msg.reply_text("💡 សាកល្បងសំណួរទាំងនេះ (offline):\n" + "\n".join(f"• {s}" for s in sugg))
         return True
     return False
 
-# ------------- Commands ------------------
+# commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles /start and deep-links /start <qid>."""
     args = context.args or []
     if args:
         payload = args[0].strip()
-        # deep-link id?
         if payload.startswith("q") and len(payload) == 11:
             for q in _all_questions():
                 if _qid(q) == payload:
@@ -72,15 +65,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         return
                     await update.message.reply_text(f"❓ {q}\n\n❌ មិនមានចម្លើយ Offline។")
                     return
-
-        # otherwise treat args as free text
         qtext = " ".join(args)
         if await answer_offline(update.message, qtext):
             return
         await update.message.reply_text("❌ មិនមានចម្លើយ Offline។")
         return
 
-    # normal welcome
     user = update.effective_user.first_name or "អ្នកប្រើ"
     txt = (
         f"🤖 ស្វាគមន៍ {user}\n\n"
@@ -89,17 +79,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• ព័ត៌មាន Offline អំពីសាលា NGS PREAKLEAP\n\n"
         "🔰 ពាក្យបញ្ជា:\n"
         "• /schoolinfo – បង្ហាញសំណួរ Offline ជា link ពណ៌ខៀវ (ចុចបាន)\n"
-        "• /ask <សំណួរ> – សួរតាម API (Online) [ជាជម្រើស]\n\n"
-        "✏️ កល្យាណ បង្កើតដោយសិស្ស NGS PREAKLEAP\n"
-        "📞 https://t.me/Cheukeat"
+        "• /ask <សំណួរ> – សួរតាម API (Online)\n"
     )
     await update.message.reply_text(txt)
 
 async def schoolinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send outline with BLUE deep-links. Clicking opens /start <qid>."""
     bot_username = context.bot.username
     help_text = get_offline_help_text() or ""
-
     lines_out: list[str] = []
     for line in help_text.splitlines():
         q = _extract_q_from_line(line)
@@ -109,31 +95,20 @@ async def schoolinfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines_out.append(f'- <a href="{link}">{q}</a>')
         else:
             lines_out.append(line)
-
-    await update.message.reply_text(
-        "\n".join(lines_out),
-        parse_mode=ParseMode.HTML,
-        disable_web_page_preview=True,
-    )
+    await update.message.reply_text("\n".join(lines_out), parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 
 async def ask_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Force online answer (if API configured)."""
     if not (ask_kalyan and GEMINI_API_KEY):
         await update.message.reply_text("⚠️ API មិនបានកំណត់ (GEMINI_API_KEY/ask_kalyan មិនមាន).")
         return
-
     parts = context.args or []
     if parts:
         prompt = " ".join(parts).strip()
     elif update.message and update.message.reply_to_message and update.message.reply_to_message.text:
         prompt = update.message.reply_to_message.text.strip()
     else:
-        await update.message.reply_text(
-            "🧠 ប្រើឧទាហរណ៍៖\n• /ask អ្វីទៅជា AI?\n• ឬ reply ទៅលើសារណាមួយ ហើយវាយ /ask",
-            parse_mode=ParseMode.MARKDOWN,
-        )
+        await update.message.reply_text("🧠 ឧទាហរណ៍: /ask អ្វីទៅជា AI?", parse_mode=ParseMode.MARKDOWN)
         return
-
     try:
         reply = ask_kalyan(prompt, api_key=GEMINI_API_KEY) or "❌ API មិនឆ្លើយតប។"
     except Exception as e:
@@ -155,7 +130,7 @@ async def message_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply = "🤖 សំណួរនេះមិនមានក្នុង Offline ទេ។ សូមប្រើ /ask ដើម្បីសួរតាម API!"
     await update.message.reply_text(reply)
 
-# ------------- Boot (Render webhook or polling) -------------
+# ---- Boot (async) ----
 async def run_bot():
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
@@ -164,30 +139,24 @@ async def run_bot():
     app.add_handler(CommandHandler("ask", ask_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_router))
 
-    WEBHOOK_URL = (os.getenv("WEBHOOK_URL") or "").strip()  # e.g. https://<service>.onrender.com/telegram
+    WEBHOOK_URL = (os.getenv("WEBHOOK_URL") or "").strip()   # e.g. https://<service>.onrender.com/telegram
     WEBHOOK_SECRET = (os.getenv("WEBHOOK_SECRET") or "").strip()
     PORT = int(os.getenv("PORT", "8080"))
 
     if WEBHOOK_URL:
-        # Ensure full URL (you can include token at the end or not; either is ok)
-        final_url = WEBHOOK_URL.rstrip("/")
-
-        log.info("🚀 Running webhook on 0.0.0.0:%s", PORT)
+        # NOTE: run_webhook sets the webhook for you; don't call bot.set_webhook separately.
         await app.run_webhook(
             listen="0.0.0.0",
             port=PORT,
-            webhook_url=final_url,
+            webhook_url=WEBHOOK_URL.rstrip("/"),
             secret_token=(WEBHOOK_SECRET or None),
             drop_pending_updates=True,
         )
     else:
-        log.info("🟢 Long-polling…")
         await app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     import asyncio
-    try:
-        asyncio.run(run_bot())
-    except RuntimeError:
-        # Some hosts reuse a running loop — ignore close errors
-        pass
+    import nest_asyncio
+    nest_asyncio.apply()
+    asyncio.run(run_bot())
