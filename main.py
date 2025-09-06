@@ -182,7 +182,7 @@ OFFLINE_OUTLINE = """📚 សំណួរដែលអ្នកអាចសួរ
 
 📋 វិធីបង្រៀន
 - វិធីសាស្ត្របង្រៀន?
-- តើ Flipped Classroom មានអ្វី?
+- តើ Collaborative Learning មានអ្វី?
 
 🛡 បទបញ្ជា និងវិន័យ
 - តើអាចយកទូរស័ព្ទមកសាលាទេ?
@@ -474,7 +474,7 @@ def main():
             app.run_polling(drop_pending_updates=True)
             return
 
-        path = f"telegram/{TELEGRAM_BOT_TOKEN}"      # must match webhook_url path
+        path = f"telegram/{TELEGRAM_BOT_TOKEN}"  
         final_url = f"{base_url}/{path}"
 
         log.info("🌐 Webhook URL: %s", final_url)
