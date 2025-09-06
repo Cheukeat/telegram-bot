@@ -135,29 +135,22 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_router))
 
     if WEBHOOK_URL and not FORCE_POLLING:
-        # Build final webhook URL
+        # Build final webhook URL (your public URL + bot token)
         final_url = WEBHOOK_URL.rstrip("/") + "/" + TELEGRAM_BOT_TOKEN
-        log.info("🌐 Setting webhook: %s", final_url)
+        log.info("🌐 Webhook URL: %s", final_url)
 
-        # set_webhook returns a Future; wait for it in sync context
-        app.bot.set_webhook(
-            url=final_url,
-            secret_token=(WEBHOOK_SECRET or None),
-            drop_pending_updates=True,
-        ).result()
-
+        # NOTE: Don't call set_webhook here; run_webhook will handle it.
         log.info("🚀 Running webhook on 0.0.0.0:%s path=%s", PORT, TELEGRAM_BOT_TOKEN)
-        # Blocking call (do NOT wrap in asyncio.run)
         app.run_webhook(
             listen="0.0.0.0",
             port=PORT,
             url_path=TELEGRAM_BOT_TOKEN,
             webhook_url=final_url,
             secret_token=(WEBHOOK_SECRET or None),
+            drop_pending_updates=True,
         )
     else:
         log.info("🟢 Long-polling…")
-        # Blocking call (do NOT wrap in asyncio.run)
         app.run_polling(drop_pending_updates=True)
 
 
