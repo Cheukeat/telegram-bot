@@ -127,21 +127,39 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(answer)
 
 # ============ Boot ============
-async def run_bot():
+def main():
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("schoolinfo", schoolinfo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_router))
 
     if WEBHOOK_URL and not FORCE_POLLING:
+        # Build final webhook URL
         final_url = WEBHOOK_URL.rstrip("/") + "/" + TELEGRAM_BOT_TOKEN
         log.info("🌐 Setting webhook: %s", final_url)
-        await app.bot.set_webhook(url=final_url, secret_token=(WEBHOOK_SECRET or None), drop_pending_updates=True)
-        await app.run_webhook(listen="0.0.0.0", port=PORT, url_path=TELEGRAM_BOT_TOKEN,
-                              webhook_url=final_url, secret_token=(WEBHOOK_SECRET or None))
+
+        # set_webhook returns a Future; wait for it in sync context
+        app.bot.set_webhook(
+            url=final_url,
+            secret_token=(WEBHOOK_SECRET or None),
+            drop_pending_updates=True,
+        ).result()
+
+        log.info("🚀 Running webhook on 0.0.0.0:%s path=%s", PORT, TELEGRAM_BOT_TOKEN)
+        # Blocking call (do NOT wrap in asyncio.run)
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            url_path=TELEGRAM_BOT_TOKEN,
+            webhook_url=final_url,
+            secret_token=(WEBHOOK_SECRET or None),
+        )
     else:
         log.info("🟢 Long-polling…")
-        await app.run_polling(drop_pending_updates=True)
+        # Blocking call (do NOT wrap in asyncio.run)
+        app.run_polling(drop_pending_updates=True)
+
 
 if __name__ == "__main__":
-    asyncio.run(run_bot())
+    main()
